@@ -5,67 +5,11 @@ import mcp3421mod
 import time
 
 
-def get_input_leg_names(in_mux_config: int) -> tuple[str, str]:
-    """возвращает кортеж имен входных выводов микросхемы"""
-    if 0 == in_mux_config:
-        return "AIN0", "AIN1"
-    if 1 == in_mux_config:
-        return "AIN0", "AIN3"
-    if 2 == in_mux_config:
-        return "AIN1", "AIN3"
-    if 3 == in_mux_config:
-        return "AIN2", "AIN3"
-    if 4 == in_mux_config:
-        return "AIN0", "GND"
-    if 5 == in_mux_config:
-        return "AIN1", "GND"
-    if 6 == in_mux_config:
-        return "AIN2", "GND"
-    if 7 == in_mux_config:
-        return "AIN3", "GND"
-
-
-def get_full_scale_range(gain_amp: int) -> float:
-    """возвращает диапазон полной шкалы в Вольтах"""
-    _fsr = 6.144, 4.096, 2.048, 1.024, 0.512, 0.256
-    return _fsr[gain_amp]
-
-
-'''
-def decode_common_props(source: ads1115mod.common_props):
-    """Выводит в stdout основные свойства АЦП"""
-    if not source.operational_status:
-        print("operational status: устройство выполняет преобразование")
-    else:
-        print("operational status: устройство не выполняет преобразование")
-    legs = get_input_leg_names(source.in_mux_config)
-    print(f"in mux config: positive leg: {legs[0]}; negative leg: {legs[1]}")
-    print(f"gain amplifier +/-: {get_full_scale_range(source.gain_amplifier)} [Вольт]")
-    if not source.operating_mode:
-        print("operating mode: режим непрерывного преобразования")
-    else:
-        print("operating mode: режим одиночного преобразования или состояние отключения питания")
-    if source.data_rate < 5:
-        print(f"data rate: {8 * 2 ** source.data_rate} отсчетов в секунду(!)")
-    else:
-        tmp = 250, 475, 860
-        print(f"data rate: {tmp[source.data_rate - 5]} отсчетов в секунду(!)")
-'''
-
 if __name__ == '__main__':
     i2c = I2C(id=1, scl=Pin(7), sda=Pin(6), freq=400_000)  # on Raspberry Pi Pico
     adapter = I2cAdapter(i2c)
 
-    adc = mcp3421mod.Mcp3421(adapter)
-    # print(adc)
-    # b = adc.read(4)
-    # print(b)
-    #    adc.start_measurement(single_shot=True, data_rate_raw=0, gain_raw=0, channel=0, differential_channel=True)
-    #    wt = adc.get_conversion_cycle_time()
-    #    print(f"Время преобразования: {wt} мкс")
-    #    time.sleep_us(wt)
-    #    val = adc.get_value(raw=True)
-    #    print(f"Напряжение: {val} Вольт")
+    adc = mcp3421mod.Mcp342X(adapter)
 
     print("---Одиночный режим измерения---")
     my_gain = 0
