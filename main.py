@@ -32,7 +32,7 @@ if __name__ == '__main__':
         # lsb = adc.get_lsb()
         # print(f"value: {val};\tLSB [Вольт]: {lsb}")
         # val = adc.get_raw_value_ex()
-        print(val)
+        print(f"Напряжение: {val} Вольт")
         adc.start_measurement(single_shot=True, data_rate_raw=my_data_rate, gain_raw=my_gain,
                               channel=0, differential_channel=True)
 
