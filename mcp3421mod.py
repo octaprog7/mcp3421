@@ -13,6 +13,8 @@ from sensor_pack_2.bitfield import bit_field_info
 from sensor_pack_2.bitfield import BitFields
 
 _model_3421 = 'mcp3421'
+_model_3422 = 'mcp3422'
+_model_3424 = 'mcp3424'
 
 
 def get_init_props(model: str) -> adc_init_props:
@@ -20,10 +22,16 @@ def get_init_props(model: str) -> adc_init_props:
     if _model_3421 == model.lower():
         return adc_init_props(reference_voltage=2.048, max_resolution=18, channels=0,
                               differential_channels=1, differential_mode=True)
+    if _model_3422 == model.lower():
+        return adc_init_props(reference_voltage=2.048, max_resolution=18, channels=0,
+                              differential_channels=2, differential_mode=True)
+    if _model_3424 == model.lower():
+        return adc_init_props(reference_voltage=2.048, max_resolution=18, channels=0,
+                              differential_channels=4, differential_mode=True)
     raise ValueError(f"Неизвестная модель АЦП!")
 
 
-class Mcp3421(DeviceEx, ADC, Iterator):
+class Mcp342X(DeviceEx, ADC, Iterator):
     """18-битный аналого-цифровой преобразователь с интерфейсом I2C и встроенным ИОН.
     18-Bit Analog-to-Digital Converter with I2C Interface and On-Board Reference"""
 
@@ -41,13 +49,14 @@ class Mcp3421(DeviceEx, ADC, Iterator):
         У многих АЦП кол-во бит в отсчете зависит(!) от частоты преобразования."""
         return 12 + 2 * raw_data_rate
 
-    def __init__(self, adapter: bus_service.BusAdapter, address=0x68):
-        check_value(address, range(0x68, 0x69), f"Неверное значение адреса I2C устройства: 0x{address:x}")
+    def __init__(self, adapter: bus_service.BusAdapter, model: str = 'mcp3421', address=0x68):
+        # MCP3421 имеет фиксированный адрес 0x68, но АЦП MCP342Х имеют адреса в диапазоне 0x68..0x6F
+        check_value(address, range(0x68, 0x70), f"Неверное значение адреса I2C устройства: 0x{address:x}")
         DeviceEx.__init__(self, adapter, address, True)
-        ADC.__init__(self, get_init_props(_model_3421), model=_model_3421)
+        ADC.__init__(self, get_init_props(model), model=model)
         # print("DBG:__init__")
         # для удобства работы с настройками АЦП
-        self._bit_fields = BitFields(fields_info=Mcp3421._config_reg_mcp3421)
+        self._bit_fields = BitFields(fields_info=Mcp342X._config_reg_mcp3421)
         # буфер на 4 байта
         self._buf_4 = bytearray((0 for _ in range(4)))
         # последнее считанное из АЦП значение
@@ -57,22 +66,6 @@ class Mcp3421(DeviceEx, ADC, Iterator):
         # обновлен новым преобразованием (0).
         # В режиме однократного преобразования запись этого бита в «1» инициирует новое преобразование.
         self._data_ready = None
-        # Если Истина, то устройство непрерывно выполняет преобразование данных.
-        # Иначе устройство выполняет одно преобразование и переходит в режим ожидания с низким энергопотреблением,
-        # пока не получит еще одну команду записи/чтения.
-        # self._continuously_conv = None
-        # Частота взятия отсчетов. Сырое значение.
-        # 00 = 240 SPS (12 бит),
-        # 01 = 60 SPS (14 бит),
-        # 10 = 15 SPS (16 бит),
-        # 11 = 3,75 SPS (18 бит)
-        # _curr_data_rate
-        # Выбор усиления PGA (Programmable-Gain Amplifier). Сырое значение.
-        # 00 = 1
-        # 01 = 1/2
-        # 10 = 1/4
-        # 11 = 1/8
-        # self._pga = None
         # Внимание, важный вызов(!)
         # читаю config АЦП и обновляю поля класса
         _raw_cfg = self.get_raw_config()
@@ -106,6 +99,8 @@ class Mcp3421(DeviceEx, ADC, Iterator):
         bf.field_name = 'RDY'   # инверсное значение, читай bit 7, RDY: Ready Bit
         # 0 - в бите DRY, означает, что данные были обновлены АЦП
         self._data_ready = not bf.get_field_value()
+        bf.field_name = 'CH'
+        self._curr_channel = bf.get_field_value()
         bf.field_name = 'CCM'
         self._single_shot_mode = not bf.get_field_value()
         bf.field_name = 'PGA'
@@ -163,6 +158,8 @@ class Mcp3421(DeviceEx, ADC, Iterator):
         bf = self._bit_fields
         bf.source = _cfg
         #
+        bf.field_name = 'CH'
+        bf.set_field_value(value=not self._curr_channel)
         bf.field_name = 'CCM'
         bf.set_field_value(value=not self.single_shot_mode)
         bf.field_name = 'RDY'
