@@ -1,4 +1,4 @@
-Модуль MicroPython для управления MCP3421. 18-битный аналого-цифровой преобразователь с интерфейсом I2C и встроенным ИОН.
+Модуль MicroPython для управления MCP342X. 18-битный аналого-цифровой преобразователь с интерфейсом I2C и встроенным ИОН.
 18-Bit Analog-to-Digital Converter with I2C Interface.
 
 # Описание
@@ -126,7 +126,7 @@ raw_config -> adc_properties
 ## Параметры АЦП в методах
 ### def start_measurement(self, single_shot: bool, data_rate_raw: int, gain_raw: int, channel: int, differential_channel: bool): 
 
-Параметр channel не используется, установите в 0.
+Параметр channel это номер канала. Их количество зависит от используемого АЦП семейства MCP342X.
 Параметр differential_channel установите в Истина, поскольку АЦП одноканальный с дифференциальным входом.
 Параметр data_rate_raw и gain_raw 0..3.
 
