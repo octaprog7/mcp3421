@@ -35,11 +35,11 @@ class Mcp342X(DeviceEx, ADC, Iterator):
     """18-битный аналого-цифровой преобразователь с интерфейсом I2C и встроенным ИОН.
     18-Bit Analog-to-Digital Converter with I2C Interface and On-Board Reference"""
 
-    _config_reg_mcp3421 = (bit_field_info(name='RDY', position=range(7, 8), valid_values=None),    # Этот бит является флагом готовности данных. В режиме чтения этот бит указывает, был ли выходной регистр обновлен новым преобразованием. В режиме однократного преобразования запись этого бита в «1» инициирует новое преобразование.
-                           bit_field_info(name='CH', position=range(5, 7), valid_values=None),   # (channel) Это биты выбора канала, но они не используются в MCP3421.
-                           bit_field_info(name='CCM', position=range(4, 5), valid_values=range(6)),    # (continue conversion mode) Бит режима преобразования. 1 - режим непрерывного преобразования. 0 - режим однократного преобразования.
-                           bit_field_info(name='SampleRate', position=range(2, 4), valid_values=None),  # Бит выбора частоты дискретизации. 0 - 240 SPS (12 bit); 1 - 60 SPS (14 bit); 2 - 15 SPS (16 bit); 3 - 3.75 SPS (18 bit)
-                           bit_field_info(name='PGA', position=range(2), valid_values=None),            # Биты выбора усиления PGA. 0 - 1; 1 - 1/2; 2 - 1/4; 3 - 1/8
+    _config_reg_mcp3421 = (bit_field_info(name='RDY', position=range(7, 8), valid_values=None, description=None),           # Этот бит является флагом готовности данных. В режиме чтения этот бит указывает, был ли выходной регистр обновлен новым преобразованием. В режиме однократного преобразования запись этого бита в «1» инициирует новое преобразование.
+                           bit_field_info(name='CH', position=range(5, 7), valid_values=None, description=None),            # (channel) Это биты выбора канала, но они не используются в MCP3421.
+                           bit_field_info(name='CCM', position=range(4, 5), valid_values=range(6) , description=None),      # (continue conversion mode) Бит режима преобразования. 1 - режим непрерывного преобразования. 0 - режим однократного преобразования.
+                           bit_field_info(name='SampleRate', position=range(2, 4), valid_values=None, description=None),    # Бит выбора частоты дискретизации. 0 - 240 SPS (12 bit); 1 - 60 SPS (14 bit); 2 - 15 SPS (16 bit); 3 - 3.75 SPS (18 bit)
+                           bit_field_info(name='PGA', position=range(2), valid_values=None, description=None),              # Биты выбора усиления PGA. 0 - 1; 1 - 1/2; 2 - 1/4; 3 - 1/8
                            )
     # ответ от АЦП
     _mcp3421_raw_data = namedtuple("_mcp3421_raw_data", "b0 b1 b2 config")
@@ -83,7 +83,7 @@ class Mcp342X(DeviceEx, ADC, Iterator):
         # raw = self._read_raw_data()
         buf = self._buf_4
         self.read_to_buf(buf)
-        # print(f"DBG:get_raw_config: 0x{buf[-1]:x}")
+        # последний байт в ответе АЦП это конфигурация(!)
         return buf[-1]
 
     def set_raw_config(self, value: int):
@@ -96,17 +96,13 @@ class Mcp342X(DeviceEx, ADC, Iterator):
         # вызывать только после вызова get_raw_config!!!
         bf = self._bit_fields
         bf.source = raw_config
-        bf.field_name = 'RDY'   # инверсное значение, читай bit 7, RDY: Ready Bit
         # 0 - в бите DRY, означает, что данные были обновлены АЦП
-        self._data_ready = not bf.get_field_value()
-        bf.field_name = 'CH'
-        self._curr_channel = bf.get_field_value()
-        bf.field_name = 'CCM'
-        self._single_shot_mode = not bf.get_field_value()
-        bf.field_name = 'PGA'
-        self._curr_raw_gain = bf.get_field_value()
-        bf.field_name = 'SampleRate'
-        self._curr_raw_data_rate = bf.get_field_value()
+        self._data_ready = not bf['RDY']
+        self._curr_channel = bf['CH']
+        self._single_shot_mode = not bf['CCM']
+        self._curr_raw_gain = bf['PGA']
+        self._curr_raw_data_rate = bf['SampleRate']
+
 
     def get_raw_value(self) -> int:
         """Возвращает 'сырое' значение отсчета АЦП. Переопределяется в классах - наследниках!"""
@@ -157,19 +153,14 @@ class Mcp342X(DeviceEx, ADC, Iterator):
         _cfg = self.get_raw_config()
         bf = self._bit_fields
         bf.source = _cfg
-        #
-        bf.field_name = 'CH'
-        bf.set_field_value(value=not self._curr_channel)
-        bf.field_name = 'CCM'
-        bf.set_field_value(value=not self.single_shot_mode)
-        bf.field_name = 'RDY'
-        bf.set_field_value(value=self.single_shot_mode)
-        bf.field_name = 'SampleRate'
-        bf.set_field_value(value=self.current_sample_rate)
-        bf.field_name = 'PGA'
-        bf.set_field_value(value=self.current_raw_gain)
-        #
+        # *
+        bf['CH'] = not self._curr_channel
+        bf['CCM'] = not self.single_shot_mode
+        bf['RDY'] = self.single_shot_mode
+        bf['SampleRate'] = self.current_sample_rate
+        bf['PGA'] = self.current_raw_gain
         # print(f"DBG:adc_properties_to_raw_config: 0x{bf.source:x}")
+
         return bf.source
 
     @property
